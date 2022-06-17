@@ -87,7 +87,7 @@ def register_integrator_settings(scene_settings_cls):
     items = []
     for f in os.listdir(args_path):
         name = f.split('.')[0]
-        typename = '%sIntegratorSettings' % name
+        typename = f'{name}IntegratorSettings'
         ntype = type(typename, (RendermanIntegratorSettings,), {})
         ntype.bl_label = name
         ntype.typename = typename
@@ -111,13 +111,13 @@ def register_integrator_settings(scene_settings_cls):
                 if param_widget == 'checkbox':
                     prop = bpy.props.BoolProperty(name=param_label, 
                         default=bool(param_default), description=param_help)
-                                                    
+
                 elif param_widget == 'mapper':
                     prop = bpy.props.EnumProperty(name=param_label, 
                             items=sp_optionmenu_to_string(p.find("hintdict[@name='options']"), 'float'),
                                             default=str(param_default),
                                             description=param_help)
-                    
+
                 elif param_widget == 'default':
                     param_min = float(p.attrib['min']) if 'min' in p.attrib else 0.0
                     param_max = float(p.attrib['max']) if 'max' in p.attrib else 1.0
@@ -125,15 +125,15 @@ def register_integrator_settings(scene_settings_cls):
                             default=param_default, precision=3,
                             min=param_min, max=param_max,
                             description=param_help)
-                    
-            elif param_type == 'int' or param_type == 'integer':
+
+            elif param_type in ['int', 'integer']:
                 param_default = int(param_default)
                 if name == 'PxrPathTracer' and param_label in ['numBxdfSamples', 'numLightSamples']:
                     param_default = 8
                 if param_widget == 'checkbox':
                     prop = bpy.props.BoolProperty(name=param_label, 
                         default=bool(param_default), description=param_help)
-                                                    
+
                 elif param_widget == 'mapper':
                     prop = bpy.props.EnumProperty(name=param_label, 
                             items=sp_optionmenu_to_string(p.find("hintdict[@name='options']"), 'int'),
@@ -147,7 +147,7 @@ def register_integrator_settings(scene_settings_cls):
                             min=param_min,
                             max=param_max,
                             description=param_help)
-                    
+
             elif param_type == 'color':
                 if param_default == 'null':
                     param_default = '0 0 0'
@@ -156,8 +156,8 @@ def register_integrator_settings(scene_settings_cls):
                                             default=param_default, size=3,
                                             subtype="COLOR",
                                             description=param_help)
-            elif param_type == 'string' or param_type == 'struct':
-                if param_default == None:
+            elif param_type in ['string', 'struct']:
+                if param_default is None:
                     param_default = ''
                 if '__' in param_name:
                     param_name = param_name[2:]
@@ -169,12 +169,12 @@ def register_integrator_settings(scene_settings_cls):
                     prop = bpy.props.EnumProperty(name=param_label, 
                             default=param_default, description=param_help, 
                             items=[(op, op, '') for op in p.attrib['options'].split('|')])
-                elif param_widget == 'default' or param_widget == 'string':
+                elif param_widget in ['default', 'string']:
                     prop = bpy.props.StringProperty(name=param_label, 
                                     default=param_default, 
                                     description=param_help)
-                                            
-            elif param_type == 'vector' or param_type == 'normal':
+
+            elif param_type in ['vector', 'normal']:
                 param_default = [float(v) for v in param_default.split()]
                 socket_default = bpy.props.FloatVectorProperty(name=param_label, 
                                             default=param_default, size=3,
@@ -184,9 +184,11 @@ def register_integrator_settings(scene_settings_cls):
             setattr(ntype, param_name, prop)
 
         bpy.utils.register_class(ntype)
-        setattr(scene_settings_cls, "%s_settings" % name, 
-            PointerProperty(type=ntype, name="%s Settings" % name)
-            )
+        setattr(
+            scene_settings_cls,
+            f"{name}_settings",
+            PointerProperty(type=ntype, name=f"{name} Settings"),
+        )
         #items.append(PointerProperty(type=ntype, name="%s Settings" % name))
 
     #return items
@@ -292,15 +294,14 @@ class LightLinking(bpy.types.PropertyGroup):
     
     def lights_list_items(self, context):
         items = [('No light chosen','Choose a light','')]
-        for lamp in bpy.data.lamps:
-            items.append( (lamp.name,lamp.name,'') )
+        items.extend((lamp.name, lamp.name, '') for lamp in bpy.data.lamps)
         return items
     
     def update_name( self, context ):
         infostr = ('(Default)', '(Forced On)', '(Forced Off)')
         valstr = ('DEFAULT', 'ON', 'OFF')
-        
-        self.name = "%s %s" % (self.light, infostr[valstr.index(self.illuminate)])
+
+        self.name = f"{self.light} {infostr[valstr.index(self.illuminate)]}"
     
     light = StringProperty(
                 name="Light",
@@ -318,12 +319,15 @@ class TraceSet(bpy.types.PropertyGroup):
     
     def groups_list_items(self, context):
         items = [('No group chosen','Choose a trace set','')]
-        for grp in context.scene.renderman.grouping_membership:
-            items.append( (grp.name,grp.name,'') )
+        items.extend(
+            (grp.name, grp.name, '')
+            for grp in context.scene.renderman.grouping_membership
+        )
+
         return items
     
     def update_name( self, context ):
-        self.name = self.mode +' '+ self.group
+        self.name = f'{self.mode} {self.group}'
     
     group = EnumProperty    (   name="Group", 
                                 update=update_name,
@@ -966,11 +970,11 @@ class RendermanLightSettings(bpy.types.PropertyGroup):
 
         #find the existing or make a new light shader node
         nt = bpy.data.node_groups[lamp.renderman.nodetree]
-        output = None
-        for node in nt.nodes:
-            if node.renderman_node_type == 'output':
-                output = node
-                break
+        output = next(
+            (node for node in nt.nodes if node.renderman_node_type == 'output'),
+            None,
+        )
+
         for node in nt.nodes:
             if hasattr(node, 'typename') and node.typename == light_shader:
                 nt.links.remove(output.inputs['Light'].links[0])
@@ -1205,7 +1209,7 @@ class RendermanCurveGeometrySettings(bpy.types.PropertyGroup):
     prim_vars = CollectionProperty(type=RendermanMeshPrimVar, name="Primitive Variables")
     prim_vars_index = IntProperty(min=-1, default=-1)
 
-         
+
 class RendermanObjectSettings(bpy.types.PropertyGroup):
 
     geometry_source = EnumProperty(
@@ -1218,17 +1222,17 @@ class RendermanObjectSettings(bpy.types.PropertyGroup):
                         ('DYNAMIC_LOAD_DSO', 'Dynamic Load DSO', 'Generates procedural geometry at render time from a dynamic shared object library')
                         ],
                 default='BLENDER_SCENE_DATA')
-    
+
     archive_anim_settings = PointerProperty(
                 type=RendermanAnimSequenceSettings,
                 name="Animation Sequence Settings")
-    
+
     path_archive = StringProperty(
                 name="Archive Path",
                 description="Path to archive file",
                 subtype='FILE_PATH',
                 default="")
-                
+
     procedural_bounds = EnumProperty(
                 name="Procedural Bounds",
                 description="The bounding box of the renderable geometry",
@@ -1265,8 +1269,8 @@ class RendermanObjectSettings(bpy.types.PropertyGroup):
                 description="Maximum corner of bounding box for this procedural geometry",
                 size=3,
                 default=[1.0,1.0,1.0])
-                
-    
+
+
     primitive = EnumProperty(
                 name="Primitive Type",
                 description="Representation of this object's geometry in the renderer",
@@ -1291,7 +1295,7 @@ class RendermanObjectSettings(bpy.types.PropertyGroup):
                 description="Path to automatically save this object as a RIB archive",
                 subtype='FILE_PATH',
                 default="")
-                
+
     primitive_radius = FloatProperty(
                 name="Radius",
                 default=1.0)
@@ -1366,7 +1370,7 @@ class RendermanObjectSettings(bpy.types.PropertyGroup):
                 name="Motion Segments",
                 description="Number of motion segments to take for multi-segment motion blur",
                 min=1, max=16, default=1)
-                
+
     shadinginterpolation = EnumProperty(
                 name="Shading Interpolation",
                 description="Method of interpolating shade samples across micropolygons",
@@ -1426,7 +1430,7 @@ class RendermanObjectSettings(bpy.types.PropertyGroup):
                 name="Trace Displacements",
                 description="Enable high resolution displaced geometry for ray tracing",
                 default=True)
-                
+
     trace_samplemotion = BoolProperty(
                 name="Trace Motion Blur",
                 description="Rays cast from this object can intersect other motion blur objects",
@@ -1459,11 +1463,11 @@ class RendermanObjectSettings(bpy.types.PropertyGroup):
                 description="How the object appears to transmission-like rays",
                 items=transmission_items,
                 default=transmission_default)
-    
+
     # Light-Linking
     light_linking = CollectionProperty(type=LightLinking, name='Light Linking')
     light_linking_index = IntProperty(min=-1, default=-1)
-    
+
     # Trace Sets
     trace_set = CollectionProperty(type=TraceSet, name='Trace Set')
     trace_set_index = IntProperty(min=-1, default=-1)
@@ -1488,7 +1492,7 @@ classes = [displacementShaders,
             RendermanLightSettings,
             RendermanParticleSettings,
             RendermanIntegratorSettings,
-            
+
             RendermanSceneSettings,
             RendermanWorldSettings,
             RendermanMeshGeometrySettings,

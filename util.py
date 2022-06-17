@@ -56,28 +56,17 @@ def getattr_recursive(ptr, attrstring):
 
 
 def debug(warrningLevel, *output):
-	if(EnableDebugging == True):
-		if type(output) == str:
-			msg = ' '.join(['%s'%a for a in output])
-			if(warrningLevel == "info"):
-				print ("INFO: " , output)
-			elif(warrningLevel == "warning"):
-				print ("WARNNING: " , output)
-			elif(warrningLevel == "error"):
-				print ("ERROR: " , output)
-			else:
-				print ("DEBUG: " , output)
-		else:
-			if(warrningLevel == "info"):
-				print ("INFO: " , output)
-			elif(warrningLevel == "warning"):
-				print ("WARNNING: " , output)
-			elif(warrningLevel == "error"):
-				print ("ERROR: " , output)
-			else:
-				print ("DEBUG: " , output)
-	else:
-		pass
+    if (EnableDebugging == True):
+        if type(output) == str:
+            msg = ' '.join([f'{a}' for a in output])
+        if(warrningLevel == "info"):
+        	print ("INFO: " , output)
+        elif(warrningLevel == "warning"):
+        	print ("WARNNING: " , output)
+        elif(warrningLevel == "error"):
+        	print ("ERROR: " , output)
+        else:
+        	print ("DEBUG: " , output)
 
 
 # -------------------- Path Handling -----------------------------
@@ -97,7 +86,7 @@ def args_files_in_path(prefs, idblock, shader_type='', threaded=True):
         for root, dirnames, filenames in os.walk(path):
             for filename in fnmatch.filter(filenames, '*.args'):
                 args[filename.split('.')[0]] = os.path.join(root, filename)
-    
+
     return args
 
 def get_path_list(rm, type):
@@ -105,18 +94,26 @@ def get_path_list(rm, type):
     if rm.use_default_paths:
         paths.append('@')
         if type == 'shader':
-            paths.append(os.path.join(guess_rmantree(), 'lib', 'RIS', 'pattern'))
-            paths.append(os.path.join(guess_rmantree(), 'lib', 'RIS', 'bxdf'))
-            paths.append(os.path.join(guess_rmantree(), 'lib', 'rsl', 'shaders'))
-            paths.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'shaders'))
-        
-    if rm.use_builtin_paths:
-        paths.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), 
-                        "%ss" % type))
-        
-    for p in getattr(rm, "%s_paths" % type):
-        paths.append(bpy.path.abspath(p.name))
+            paths.extend(
+                (
+                    os.path.join(guess_rmantree(), 'lib', 'RIS', 'pattern'),
+                    os.path.join(guess_rmantree(), 'lib', 'RIS', 'bxdf'),
+                    os.path.join(guess_rmantree(), 'lib', 'rsl', 'shaders'),
+                    os.path.join(
+                        os.path.dirname(os.path.abspath(__file__)), 'shaders'
+                    ),
+                )
+            )
 
+    if rm.use_builtin_paths:
+        paths.append(
+            os.path.join(
+                os.path.dirname(os.path.realpath(__file__)), f"{type}s"
+            )
+        )
+
+
+    paths.extend(bpy.path.abspath(p.name) for p in getattr(rm, f"{type}_paths"))
     return paths
 
 
@@ -126,20 +123,20 @@ def get_real_path(path):
 # Convert env variables to full paths.
 def path_list_convert(path_list, to_unix=False):
     paths = []
-    
+
     for p in path_list:
         p = os.path.expanduser(p)
-        
+
         if p.find('$') != -1:
             # path contains environment variables
             #p = p.replace('@', os.path.expandvars('$DL_SHADERS_PATH'))
-            
+
             # convert path separators from : to ;
             p = path_delimit_to_semicolons(p)
-            
+
             if to_unix:
                 p = path_win_to_unixy(p)
-            
+
             envpath = ''.join(p).split(';')
             paths.extend(envpath)
         else:
@@ -204,19 +201,19 @@ def user_path(path, scene=None, ob=None):
     
     # first env vars, in case they contain special blender variables
     # recursively expand these (max 10), in case there are vars in vars
-    for i in range(10):
+    for _ in range(10):
         path = os.path.expandvars(path)
-        if not '$' in path: break
-    
-    unsaved = True if bpy.data.filepath == '' else False
-    
+        if '$' not in path: break
+
+    unsaved = bpy.data.filepath == ''
+
     # first builtin special blender variables
     if unsaved:
         path = path.replace('{blend}', 'untitled')
     else:
         blendpath = os.path.splitext( os.path.split(bpy.data.filepath)[1] )[0]
         path = path.replace('{blend}', blendpath)
-        
+
     if scene != None:
         path = path.replace('{scene}', scene.name)
     if ob != None:
@@ -231,7 +228,7 @@ def user_path(path, scene=None, ob=None):
         path = bpy.path.abspath( path, start=bpy.app.tempdir )
     else:
         path = bpy.path.abspath( path )
-    
+
     return path
     
 
@@ -244,13 +241,7 @@ def rib(v, type_hint=None):
         or v.__class__.__name__ == 'Euler': 
         # BBM modified from if to elif
         return list(v)
-        
-    # matrix
-    elif type(v) == mathutils.Matrix:
-        return [v[0][0], v[1][0], v[2][0], v[3][0], 
-             v[0][1], v[1][1], v[2][1], v[3][1], 
-             v[0][2], v[1][2], v[2][2], v[3][2], 
-             v[0][3], v[1][3], v[2][3], v[3][3]]
+
     elif type(v) == mathutils.Matrix:
         return [v[0][0], v[1][0], v[2][0], v[3][0], 
              v[0][1], v[1][1], v[2][1], v[3][1], 
@@ -275,12 +266,11 @@ def rib_path(path, escape_slashes=False):
     
 #return a list of properties set on this group
 def get_properties(prop_group):
-    props = []
-    for (key, prop) in prop_group.bl_rna.properties.items(): 
-        # This is somewhat ugly, but works best!!
-            if key not in ['rna_type', 'name']:
-                props.append(prop)
-    return props
+    return [
+        prop
+        for key, prop in prop_group.bl_rna.properties.items()
+        if key not in ['rna_type', 'name']
+    ]
      
 
 def get_global_worldspace(vec, ob):
@@ -298,12 +288,7 @@ def get_local_worldspace(vec, ob):
 # ------------- Environment Variables -------------   
 
 def rmantree_from_env():
-    RMANTREE = ''
-
-    if 'RMANTREE' in os.environ.keys():
-        RMANTREE = os.environ['RMANTREE']
-    
-    return RMANTREE
+    return os.environ['RMANTREE'] if 'RMANTREE' in os.environ.keys() else ''
 
 def set_pythonpath(path):
     sys.path.append(path)
@@ -338,16 +323,16 @@ def guess_rmantree():
 # Default exporter specific env vars
 def init_exporter_env(scene):
     rm = scene.renderman
-    
+
     if 'OUT' not in os.environ.keys():
          # A safety check, some systems may not have /tmp. (like new OS builds)
         if not os.path.exists("/tmp"):
             os.mkdir("/tmp")
-            
+
         # Name our output folder the same as our BLEND file, minus the extension.
         blend_file_name = os.path.basename(bpy.data.filepath)
         render_folder_name = blend_file_name.replace(".blend","")
-        os.environ['OUT'] = "/tmp/%s" % render_folder_name
+        os.environ['OUT'] = f"/tmp/{render_folder_name}"
 
     # if 'SHD' not in os.environ.keys():
     #     os.environ['SHD'] = rm.env_vars.shd

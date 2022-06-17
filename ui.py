@@ -124,20 +124,20 @@ class CollectionPanel():
         row.template_list("UI_UL_list", "PRMAN", ptr, prop_coll, ptr, 
                         collection_index, rows=1)
         col = row.column(align=True)
-        
+
         op = col.operator(operator, icon="ZOOMIN", text="")
         op.context = opcontext
         op.collection = prop_coll
         op.collection_index = collection_index
         op.defaultname = ''
         op.action = 'ADD'
-        
+
         op = col.operator(operator, icon="ZOOMOUT", text="")
         op.context = opcontext
         op.collection = prop_coll
         op.collection_index = collection_index
         op.action = 'REMOVE'
-        
+
         if hasattr(ptr, prop_coll) and len(getattr(ptr, prop_coll)) > 0 and \
                 getattr(ptr, collection_index) >= 0:
             item = getattr(ptr, prop_coll)[getattr(ptr, collection_index)]
@@ -180,10 +180,10 @@ class ShaderPanel():
             return
 
         row = layout.row()
-        shaders = getattr(ptr, "%s_shaders" % self.shader_type)
-        
+        shaders = getattr(ptr, f"{self.shader_type}_shaders")
+
         row.prop(shaders, "shader_list", text="")
-        
+
         if shaders.shader_list == "custom":
             row.prop(shaders, "active", text="")
         op = row.operator("shading.refresh_shader_parameters", text="", icon='FILE_REFRESH')
@@ -191,7 +191,7 @@ class ShaderPanel():
         op.initialise_all = True
 
         layout.separator()
-        
+
         self._draw_params(context.scene, ptr, layout)
     
     def _draw_params(self, scene, ptr, layout):
@@ -204,13 +204,13 @@ class ShaderPanel():
             return
 
         # Find the pointer to the shader parameters
-        stored_shaders = getattr(ptr, "%s_shaders" % self.shader_type)
+        stored_shaders = getattr(ptr, f"{self.shader_type}_shaders")
         sptr = get_shader_pointerproperty(ptr, self.shader_type)
-        
+
         # Iterate and display all parameters stored for this shader
         for sp in rna_to_shaderparameters(scene, ptr, self.shader_type):
             if sp.name not in self.param_exclude.keys() and not sp.name.startswith('bl_hidden'): # BBM added the 'bl_hidden' case
-				
+
                 row = layout.row()
 				# BBM modification begin
 				# from 
@@ -265,9 +265,8 @@ class ShaderPanel():
                 else:
                 '''
                 row.prop(sptr, sp.pyname)
-                
 				# BBM addition end
-                
+
                 if sp.data_type == 'string' and sp.gadgettype != 'optionmenu':
                     # check to see if it's a texture already
                     if getattr(sptr, sp.pyname) in [tex.name for tex in bpy.data.textures]:
@@ -319,7 +318,7 @@ class RENDER_PT_renderman_sampling(PRManButtonsPanel, Panel):
         layout = self.layout
         scene = context.scene
         rm = scene.renderman
-        
+
         #layout.prop(rm, "display_driver")
         col = layout.column()
         col.prop(rm, "pixel_variance")
@@ -337,8 +336,8 @@ class RENDER_PT_renderman_sampling(PRManButtonsPanel, Panel):
             row.prop(rm, "bucket_sprial_y", text="Y")
         col.prop(rm, "integrator")
         #find args for integrators here!
-        integrator_settings = getattr(rm, "%s_settings" % rm.integrator)
-        
+        integrator_settings = getattr(rm, f"{rm.integrator}_settings")
+
         #for each property add it to ui
         for objkey in integrator_settings.bl_rna.properties.keys(): # This is somewhat ugly, but works best!!
             if objkey not in ['rna_type', 'name']:
@@ -350,30 +349,30 @@ class RENDER_PT_renderman_sampling(PRManButtonsPanel, Panel):
         split = layout.split()
         col = split.column()
         col.prop(rm, "shadingrate")
-        
+
         col.separator()
-        
+
         col.label("Pixel Filter:")
         col.prop(rm, "pixelfilter", text="")
         row = col.row(align=True)
         row.prop(rm, "pixelfilter_x", text="Size X")
         row.prop(rm, "pixelfilter_y", text="Size Y")
-        
+
         col.separator()
-        
+
         col = split.column()
         col.prop(rm, "depth_of_field")
         sub = col.column(align=True)
         sub.enabled = rm.depth_of_field
         sub.prop(rm, "fstop")
-        
+
         col.separator()
-        
+
         col.prop(rm, "motion_blur")
         sub = col.column(align=False)
         sub.enabled = rm.motion_blur
         sub.prop(rm, "motion_segments")
-        
+
         scol = sub.column(align=True)
         scol.prop(rm, "shutter_open")
         scol.prop(rm, "shutter_close")
@@ -382,12 +381,12 @@ class RENDER_PT_renderman_sampling_preview(PRManButtonsPanel, Panel):
     bl_label = "Preview Sampling"
     
     def draw(self, context):
-        
+
 
         layout = self.layout
         scene = context.scene
         rm = scene.renderman
-        
+
         #layout.prop(rm, "display_driver")
         col = layout.column()
         col.prop(rm, "preview_pixel_variance")
@@ -409,7 +408,7 @@ class MESH_PT_renderman_prim_vars(CollectionPanel, Panel):
         if context.mesh:
             geo = context.mesh
         layout.prop(item, "name")
-        
+
         row = layout.row()
         row.prop(item, "data_source", text="Source")
         if item.data_source == 'VERTEX_COLOR':
@@ -429,7 +428,7 @@ class MESH_PT_renderman_prim_vars(CollectionPanel, Panel):
         layout = self.layout
         mesh = context.mesh
         rm = mesh.renderman
-        
+
         self._draw_collection(context, layout, rm, "Primitive Variables:", "collection.add_remove",
                                         "mesh", "prim_vars", "prim_vars_index")
 
@@ -446,7 +445,7 @@ class RENDER_PT_renderman_output(PRManButtonsPanel, Panel):
         layout = self.layout
         scene = context.scene
         rm = scene.renderman
-        
+
         layout.prop(rm, "path_rib_output")
         layout.prop(rm, "output_action")
         layout.prop(rm, "display_driver")
@@ -737,8 +736,12 @@ class ShaderNodePanel():
     @classmethod
     def poll(cls, context):
         if context.scene.render.engine not in cls.COMPAT_ENGINES: return False
-        if cls.bl_context == 'material':
-            if context.material and context.material.renderman.nodetree != '': return True
+        if (
+            cls.bl_context == 'material'
+            and context.material
+            and context.material.renderman.nodetree != ''
+        ):
+            return True
         if cls.bl_context == 'data':
             if not context.lamp: return False
             if context.lamp.renderman.nodetree != '': return True
@@ -760,10 +763,10 @@ class MATERIAL_PT_renderman_shader_surface(ShaderPanel, Panel):
             layout = self.layout
             mat = context.material
             rm = mat.renderman
-            
+
             row = layout.row()
             row.prop(mat, "diffuse_color")
-            
+
             layout.separator()
         if mat and mat.renderman.nodetree == '':
             layout.operator('shading.add_renderman_nodetree').idtype = "material"
@@ -955,7 +958,7 @@ class RENDER_PT_layer_passes(PRManButtonsPanel, Panel):
         row = col.row(align=True)
         row.prop(rl, "use_pass_glossy_direct", text="Direct", toggle=True)
         row.prop(rl, "use_pass_glossy_indirect", text="Indirect", toggle=True)
-        
+
         col.prop(rl, "use_pass_subsurface_indirect", text="Subsurface")
         col.prop(rl, "use_pass_refraction", text="Refraction")
         col.prop(rl, "use_pass_emit", text="Emission")
@@ -1189,7 +1192,7 @@ class DATA_PT_renderman_lamp(ShaderPanel, Panel):
 
         lamp = context.lamp
 
-        
+
 
         if lamp.renderman.nodetree == '':
             layout.prop(lamp, "type", expand=True)
@@ -1198,8 +1201,8 @@ class DATA_PT_renderman_lamp(ShaderPanel, Panel):
         else:
             layout.prop(lamp.renderman, "renderman_type", expand=True)
             layout.prop(lamp.renderman, "shadingrate")
-            
-        
+
+
         layout.prop_search(lamp.renderman, "nodetree", bpy.data, "node_groups")
         
 
@@ -1210,11 +1213,10 @@ class DATA_PT_renderman_node_shader_lamp(ShaderNodePanel, Panel):
     def draw(self, context):
         layout = self.layout
         lamp = context.lamp
-        
+
         nt = bpy.data.node_groups[lamp.renderman.nodetree]
         output_node = next((n for n in nt.nodes if n.renderman_node_type == 'output'), None)
-        lamp_node = output_node.inputs['Light'].links[0].from_node
-        if lamp_node:
+        if lamp_node := output_node.inputs['Light'].links[0].from_node:
             draw_node_properties_recursive(self.layout, context, nt, lamp_node)
 
 
@@ -1408,14 +1410,14 @@ class OBJECT_PT_renderman_object_geometry(Panel):
         ob = context.object
         rm = ob.renderman
         anim = rm.archive_anim_settings
-        
+
         col = layout.column()
-        
+
         col.prop(rm, "geometry_source")
-        
+
         if rm.geometry_source in ('ARCHIVE', 'DELAYED_LOAD_ARCHIVE'):
             col.prop(rm, "path_archive")
-            
+
             col.prop(anim, "animated_sequence")
             if anim.animated_sequence:
                 col.prop(anim, "blender_start")
@@ -1429,10 +1431,10 @@ class OBJECT_PT_renderman_object_geometry(Panel):
         elif rm.geometry_source == 'DYNAMIC_LOAD_DSO':
             col.prop(rm, "path_dso")
             col.prop(rm, "path_dso_initial_data")
-            
+
         if rm.geometry_source in ('DELAYED_LOAD_ARCHIVE', 'PROCEDURAL_RUN_PROGRAM', 'DYNAMIC_LOAD_DSO'):
             col.prop(rm, "procedural_bounds")
-            
+
             if rm.procedural_bounds == 'MANUAL':
                 colf = layout.column_flow()
                 colf.prop(rm, "procedural_bounds_min")
@@ -1440,9 +1442,9 @@ class OBJECT_PT_renderman_object_geometry(Panel):
 
         if rm.geometry_source == 'BLENDER_SCENE_DATA':
             col.prop(rm, "primitive")
-    
+
             colf = layout.column_flow()
-    
+
             if rm.primitive in ('CONE', 'DISK'):
                 colf.prop(rm, "primitive_height")        
             if rm.primitive in ('SPHERE', 'CYLINDER', 'CONE', 'DISK'):
@@ -1460,15 +1462,15 @@ class OBJECT_PT_renderman_object_geometry(Panel):
             if rm.primitive == 'POINTS':
                 colf.prop(rm, "primitive_point_type")
                 colf.prop(rm, "primitive_point_width")
-                    
+
             col.prop(rm, "export_archive")
             #if rm.export_archive:                
             #    col.prop(rm, "export_archive_path")
-        
+
 
         col = layout.column()
         col.prop(rm, "export_coordsys")
-        
+
         row = col.row()
         row.prop(rm, "motion_segments_override", text="")
         sub = row.row()
@@ -1491,10 +1493,10 @@ class OBJECT_PT_renderman_object_render_shading(Panel):
         layout = self.layout
         ob = context.object
         rm = ob.renderman
-        
+
         col = layout.column()
         col.prop(rm, "shadinginterpolation", text="Interpolation")
-        
+
         row = col.row()
         row.prop(rm, "shadingrate_override", text="")
         sub = row.row()
@@ -1523,7 +1525,7 @@ class OBJECT_PT_renderman_object_render(CollectionPanel, Panel):
         rm = bpy.data.objects[ob.name].renderman
         ll = rm.light_linking
         index = rm.light_linking_index
-        
+
         col = layout.column()
         col.prop(item, "group")
         col.prop(item, "mode")
@@ -1532,33 +1534,33 @@ class OBJECT_PT_renderman_object_render(CollectionPanel, Panel):
         layout = self.layout
         ob = context.object
         rm = ob.renderman
-        
+
         col = layout.column()
         col.prop(rm, "visibility_camera", text="Camera")
         row = col.row()
         row.prop(rm, "visibility_trace_diffuse", text="Diffuse Rays")
         row.prop(rm, "trace_diffuse_hitmode", text="")
-        
+
         row = col.row()
         row.prop(rm, "visibility_trace_specular", text="Specular Rays")
         row.prop(rm, "trace_specular_hitmode", text="")
-        
+
         row = col.row()
         row.prop(rm, "visibility_trace_transmission", text="Transmission Rays")
         row.prop(rm, "trace_transmission_hitmode", text="")
-        
+
         col.prop(rm, "visibility_photons", text="Photons")
         col.prop(rm, "visibility_shadowmaps", text="Shadow Maps")
-        
+
         col.prop(rm, "trace_displacements")
         col.prop(rm, "trace_samplemotion")
-        
+
         col.separator()
-        
+
         col.prop(rm, "matte")
-        
+
         col.separator()
-        
+
         self._draw_collection(context, layout, rm, "Trace sets:", "collection.add_remove",
                                         "object", "trace_set", "trace_set_index")
 
@@ -1579,7 +1581,7 @@ class OBJECT_PT_renderman_object_lightlinking(CollectionPanel, Panel):
         rm = bpy.data.objects[ob.name].renderman
         ll = rm.light_linking
         index = rm.light_linking_index
-        
+
         col = layout.column()
         col.prop_search(item, "light", bpy.data, "lamps")
         col.prop(item, "illuminate")
@@ -1589,7 +1591,7 @@ class OBJECT_PT_renderman_object_lightlinking(CollectionPanel, Panel):
         ob = context.object
         rm = ob.renderman
         scene = context.scene
-        
+
         self._draw_collection(context, layout, rm, "Light Link:", "collection.add_remove",
                                         "object", "light_linking", "light_linking_index")
 
@@ -1605,15 +1607,15 @@ class PARTICLE_PT_renderman_particle(ParticleButtonsPanel, Panel):
 
     def draw(self, context):
         layout = self.layout
-        
+
         # XXX todo: handle strands properly
-        
+
         psys = context.particle_system
         rm = psys.settings.renderman
-        
+
         col = layout.column()
         col.prop(rm, "material_id")
-        
+
         if psys.settings.type == 'EMITTER':
             col.row().prop(rm, "particle_type", expand=True)
             if rm.particle_type == 'OBJECT':
@@ -1621,10 +1623,10 @@ class PARTICLE_PT_renderman_particle(ParticleButtonsPanel, Panel):
 
         # XXX: if rm.type in ('sphere', 'disc', 'patch'):
         # implement patchaspectratio and patchrotation   
-        
+
         split = layout.split()
         col = split.column()
-        
+
         #if (psys.settings.type == 'EMITTER' and rm.particle_type == 'particle') or psys.settings.type == 'HAIR':
         col.prop(rm, "constant_width")
         subcol = col.column()
@@ -1658,7 +1660,7 @@ class PARTICLE_PT_renderman_prim_vars(CollectionPanel, Panel):
         layout = self.layout
         psys = context.particle_system
         rm = psys.settings.renderman
-        
+
         self._draw_collection(context, layout, rm, "Primitive Variables:", "collection.add_remove",
                                         "particle_system.settings", "prim_vars", "prim_vars_index")
 

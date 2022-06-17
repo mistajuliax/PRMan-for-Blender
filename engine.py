@@ -100,9 +100,9 @@ class RPass:
         self.scene = scene
         init_exporter_env(scene)
         self.initialize_paths(scene)
-        
+
         self.rm = scene.renderman
-        
+
         self.do_render = True
         self.is_interactive_running = False
         self.options = []
@@ -115,12 +115,12 @@ class RPass:
 
 
     def initialize_paths(self, scene):
-        self.paths = {}
-        self.paths['rman_binary'] = scene.renderman.path_renderer
-        self.paths['path_texture_optimiser'] = \
-            scene.renderman.path_texture_optimiser
-        self.paths['rmantree'] = scene.renderman.path_rmantree
-        
+        self.paths = {
+            'rman_binary': scene.renderman.path_renderer,
+            'path_texture_optimiser': scene.renderman.path_texture_optimiser,
+            'rmantree': scene.renderman.path_rmantree,
+        }
+
         self.paths['rib_output'] = user_path(scene.renderman.path_rib_output, 
                                             scene=scene)
         self.paths['texture_output'] = user_path( \
@@ -128,13 +128,13 @@ class RPass:
                                             scene=scene)
         self.paths['export_dir'] = user_path(os.path.dirname( \
                 self.paths['rib_output']), scene=scene)
-        
+
         if not os.path.exists(self.paths['export_dir']):
             os.mkdir(self.paths['export_dir'])
-        
+
         self.paths['render_output'] = os.path.join(self.paths['export_dir'], 
                                         'buffer.tif')
-        
+
         self.paths['shader'] = get_path_list_converted(scene.renderman, \
                                                         'shader')
         self.paths['texture'] = [self.paths['texture_output']]
@@ -278,7 +278,7 @@ class RPass:
 
     #search through context.scene for is_updated
     #use edit world begin
-    def issue_edits(context):
+    def issue_edits(self):
         pass
 
     #ri.end
@@ -300,19 +300,18 @@ class RPass:
         for in_file, out_file in texture_list:
             in_file = get_real_path(in_file)
             out_file_path = os.path.join(self.paths['texture_output'], out_file)
-            
+
             if os.path.isfile(out_file_path) and \
                 self.rm.always_generate_textures == False and \
                 os.path.getmtime(in_file) <= os.path.getmtime(out_file_path):
-                debug("info" , "TEXTURE %s EXISTS (or is not dirty)!" % 
-                    out_file)
+                debug("info", f"TEXTURE {out_file} EXISTS (or is not dirty)!")
             else:
                 cmd = [os.path.join(self.paths['rmantree'], 'bin', \
                     self.paths['path_texture_optimiser']), in_file,
                     out_file_path]
                 debug("info", "TXMAKE STARTED!", cmd)
-                
-                
+
+
                 Blendcdir = bpy.path.abspath("//")
                 if Blendcdir == '':
                     Blendcdir = None

@@ -67,17 +67,14 @@ reserved_words = ('and', 'assert', 'break', 'class', 'continue',
 def tex_source_path(tex, blender_frame):
     rm = tex.renderman
     anim = rm.anim_settings
-    
+
     path = get_sequence_path(rm.file_path, blender_frame, anim)
-    if path == '':
-        return path
-    else:
-        return os.path.normpath(bpy.path.abspath(path))
+    return path if path == '' else os.path.normpath(bpy.path.abspath(path))
     
 def tex_optimised_path(tex, frame):
     path = tex_source_path(tex, frame)
 
-    return os.path.splitext(path)[0] + '.tif'
+    return f'{os.path.splitext(path)[0]}.tif'
 
 # return the file path of the optimised version of
 # the image texture file stored in Texture datablock
@@ -132,7 +129,7 @@ def class_generate_properties(node, parent_name, shaderparameters):
                 name,meta,prop = generate_property(sub_param)
                 #another fix for sloppy args files
                 if name == sp.attrib['name']:
-                    name = name + '_prop'
+                    name = f'{name}_prop'
                 sub_params.append(name)
                 prop_meta[name] = meta
                 setattr(node, name, prop)
@@ -159,7 +156,7 @@ def generate_property(sp):
         param_name = param_name[1:]
     if param_name[0] == '_':
         param_name = param_name[1:]
-    
+
     param_label = sp.attrib['label'] if 'label' in sp.attrib else param_name
     param_widget = sp.attrib['widget'].lower() if 'widget' in sp.attrib \
         else 'default'
@@ -169,7 +166,7 @@ def generate_property(sp):
         param_type = sp.attrib['type']
     param_help = ""
     param_default = sp.attrib['default'] if 'default' in sp.attrib else None
-    
+
     prop_meta = sp.attrib
     renderman_type = param_type
     prop = None
@@ -183,7 +180,7 @@ def generate_property(sp):
             lines = s.text.split('\n')
             for line in lines:
                 param_help = param_help + line.strip(' \t\n\r')
-            
+
     if param_type == 'float':
         if 'arraySize' in sp.attrib.keys():
             param_default = tuple(float(f) for f in \
@@ -198,14 +195,14 @@ def generate_property(sp):
             if param_widget == 'checkbox':
                 prop = bpy.props.BoolProperty(name=param_label, 
                     default=bool(param_default), description=param_help)
-                                                
+
             elif param_widget == 'mapper':
                 prop = bpy.props.EnumProperty(name=param_label, 
                     items=sp_optionmenu_to_string(\
                         sp.find("hintdict[@name='options']")),
                     default=sp.attrib['default'],
                     description=param_help)
-                
+
             else:
                 param_min = parse_float(sp.attrib['min']) if 'min' \
                     in sp.attrib else sys.float_info.min
@@ -220,14 +217,14 @@ def generate_property(sp):
                         min=param_min, max=param_max,
                         description=param_help)
         renderman_type = 'float'
-            
-    elif param_type == 'int' or param_type == 'integer':
+
+    elif param_type in ['int', 'integer']:
         param_default = int(param_default) if param_default else 0
         if param_widget == 'checkbox':
             prop = bpy.props.BoolProperty(name=param_label, 
                 default=bool(param_default), description=param_help)
 
-                                            
+
         elif param_widget == 'mapper':
             prop = bpy.props.EnumProperty(name=param_label, 
                     items=sp_optionmenu_to_string(\
@@ -243,7 +240,7 @@ def generate_property(sp):
                     max=param_max,
                     description=param_help)
         renderman_type = 'int'
-            
+
     elif param_type == 'color':
         if param_default == 'null':
             param_default = '0 0 0'
@@ -262,8 +259,8 @@ def generate_property(sp):
                             description=param_help)
         renderman_type = 'string'
 
-    elif param_type == 'string' or param_type == 'struct':
-        if param_default == None:
+    elif param_type in ['string', 'struct']:
+        if param_default is None:
             param_default = ''
         #if '__' in param_name:
         #    param_name = param_name[2:]
@@ -281,9 +278,9 @@ def generate_property(sp):
                             default=param_default, 
                             description=param_help)
         renderman_type = 'string'
-                                    
-    elif param_type == 'vector' or param_type == 'normal':
-        if param_default == None:
+
+    elif param_type in ['vector', 'normal']:
+        if param_default is None:
             param_default = '0 0 0'
         param_default = [float(v) for v in param_default.split()]
         prop = bpy.props.FloatVectorProperty(name=param_label, 
@@ -300,7 +297,7 @@ def generate_property(sp):
                                     description=param_help)
         renderman_type = 'int'
         prop_meta['arraySize'] = 2
-    
+
     prop_meta['renderman_type'] = renderman_type
     prop_meta['renderman_name'] = renderman_name
     return (param_name, prop_meta, prop)

@@ -37,28 +37,28 @@ class RendermanPreferencePath(bpy.types.PropertyGroup):
 
 
 class RendermanEnvVarSettings(bpy.types.PropertyGroup):
-    
-	
+
+
 	if sys.platform == ("win32"):
 		out = StringProperty(
 			name="OUT (Output Root)",
 			description="Default RIB export path root",
 			subtype='DIR_PATH',
 			default='/./tmp\prman_for_blender')
-	
+
 	else:
 		out = StringProperty(
 			name="OUT (Output Root)",
 			description="Default RIB export path root",
 			subtype='DIR_PATH',
 			default='/tmp/prman_for_blender')
-	
+
 	shd = StringProperty(
                 name="SHD (Shadow Maps)",
                 description="SHD environment variable",
                 subtype='DIR_PATH',
                 default='$OUT/shadowmaps')
-    
+
 	ptc = StringProperty(
                 name="PTC (Point Clouds)",
                 description="PTC environment variable",

@@ -55,7 +55,7 @@ class SHADING_OT_add_renderman_nodetree(bpy.types.Operator):
         idtype = self.properties.idtype
         context_data = {'material':context.material, 'lamp':context.lamp }
         idblock = context_data[idtype]
-        
+
         nt = bpy.data.node_groups.new(idblock.name, type='RendermanPatternGraph')
         nt.use_fake_user = True
         idblock.renderman.nodetree = nt.name
@@ -67,7 +67,7 @@ class SHADING_OT_add_renderman_nodetree(bpy.types.Operator):
             default.location[0] -= 300
             nt.links.new(default.outputs[0], output.inputs[0])
         else:
-            
+
             light_type = idblock.type
             light_shader = 'PxrStdAreaLightLightNode'
             if light_type == 'SUN':
@@ -112,7 +112,7 @@ class ExportRIBArchive(bpy.types.Operator, ExportHelper):
         default=1)
 
     @classmethod
-    def poll(self, context):
+    def poll(cls, context):
         return len(context.selected_objects) > 0
 
     def execute(self, context):
@@ -131,7 +131,7 @@ class TEXT_OT_compile_shader(bpy.types.Operator):
         description='Add the shader\'s directory to the shader path', default=False)
     
     @classmethod
-    def poll(self, context):
+    def poll(cls, context):
         return type(context.area.spaces.active) == bpy.types.SpaceTextEditor
     
     def draw(self, context):
@@ -144,7 +144,7 @@ class TEXT_OT_compile_shader(bpy.types.Operator):
         wm = context.window_manager
         scene = context.scene
         text = context.area.spaces.active.text
-        
+
         filename = bpy.path.abspath(text.filepath)
         dirname = os.path.dirname(filename)
 
@@ -153,7 +153,7 @@ class TEXT_OT_compile_shader(bpy.types.Operator):
         for p in [p.name for p in scene.renderman.shader_paths]:
             if os.path.normpath(dirname) == os.path.normpath(p):
                 return self.execute(context)
-        
+
         return wm.invoke_props_dialog(self)
         
     def execute(self, context):
@@ -161,23 +161,22 @@ class TEXT_OT_compile_shader(bpy.types.Operator):
         text = context.area.spaces.active.text
         filename = bpy.path.abspath(text.filepath)
         shader_compiler = scene.renderman.path_shader_compiler
-        
+
         if self.properties.add_to_path:
             paths = scene.renderman.shader_paths
             paths.add()
             paths[scene.renderman.shader_paths_index].name = os.path.dirname(filename)
-        
+
         # save shader source file first
         bpy.ops.text.save()
-        
+
         # shaderdl overwrites existing files
         cmd = [shader_compiler, filename, '-d', os.path.dirname(filename)]
-        
-        retcode = subprocess.call(cmd)
-        if retcode:
-            self.report({'ERROR'}, "Error compiling shader: %s" % filename)
+
+        if retcode := subprocess.call(cmd):
+            self.report({'ERROR'}, f"Error compiling shader: {filename}")
         else:
-            self.report({'INFO'}, "Compiled shader: %s" % filename)
+            self.report({'INFO'}, f"Compiled shader: {filename}")
 
         return {'FINISHED'}
 
@@ -209,26 +208,23 @@ class TEXTURE_OT_convert_to_texture(bpy.types.Operator):
         propname = self.properties.propname
         shader_type = self.properties.shader_type
         scene = context.scene
-        
-        if space.context == 'MATERIAL':
-            ptr = context.material.renderman
+
         if space.context == 'DATA':
             ptr = context.lamp.renderman
+        elif space.context == 'MATERIAL':
+            ptr = context.material.renderman
         elif space.context == 'WORLD':
-            if shader_type == 'atmosphere':
+            if shader_type in ['atmosphere', 'shader']:
                 ptr = context.world.renderman
             elif shader_type == 'light':
                 ptr = context.world.renderman.gi_primary
-			# BBM addition begin
-            elif shader_type == 'shader':
-                ptr = context.world.renderman
 			# BBM addition end
-        
+
         init_env(scene)
         sptr = get_shader_pointerproperty(ptr, shader_type)
-        if sptr == None:
+        if sptr is None:
             return {'CANCELLED'}
-        
+
         filepath = getattr(sptr, propname)
         texname = ''
 
@@ -237,7 +233,7 @@ class TEXTURE_OT_convert_to_texture(bpy.types.Operator):
         if len(texl) == 1:
             self.switch_context(context, texl[0])    
             return {'FINISHED'}
-            
+
         # otherwise create and initialise the texture
         texname = os.path.split(bpy.path.abspath(filepath))[1]
         if texname == '': texname = "Texture"
@@ -245,14 +241,14 @@ class TEXTURE_OT_convert_to_texture(bpy.types.Operator):
         tex.renderman.file_path = filepath
         tex.renderman.auto_generate_texture = True
         tex.use_fake_user = True
-        
+
         if os.path.splitext(tex.renderman.file_path)[1].lower() in ('.hdr', '.exr'):
             tex.renderman.input_color_space = 'linear'
             tex.renderman.output_color_depth = 'FLOAT'
-        
+
         # update the original property with Texture name
-        setattr(sptr, propname, "%s" % tex.name)
-        
+        setattr(sptr, propname, f"{tex.name}")
+
         self.switch_context(context, tex)
         return {'FINISHED'}
 
@@ -268,7 +264,7 @@ class TEXTURE_OT_generate_optimised(bpy.types.Operator):
         scene = context.scene
         srcpath = tex_source_path(tex, scene.frame_current)
         optpath = tex_optimised_path(tex, scene.frame_current)
-        
+
         make_optimised_texture_3dl(tex, scene.renderman.path_texture_optimiser, srcpath, optpath)
         return {'FINISHED'}
 
@@ -280,7 +276,7 @@ class SPACE_OT_back_to_shader(bpy.types.Operator):
 
     def execute(self, context):
         space = context.space_data
-        
+
         space.context = context.window_manager.prev_context
         space.pin_id = None
         space.use_pin_id = False
@@ -376,32 +372,31 @@ class COLLECTION_OT_add_remove(bpy.types.Operator):
                 rm = bpy.data.lamps[context.active_object.name].renderman
             else:
                 rm = context.active_object.active_material.renderman
-            id = getattr( rm, '%s_shaders' % self.properties.shader_type )
+            id = getattr(rm, f'{self.properties.shader_type}_shaders')
             rm = getattr(id, self.properties.context)
-        
+
         prop_coll = self.properties.collection
         coll_idx = self.properties.collection_index
-        
+
         collection = getattr(rm, prop_coll)
         index = getattr(rm, coll_idx)
 
-        # otherwise just add an empty one        
+        # otherwise just add an empty one
         if self.properties.action == 'ADD':
             collection.add()
-            
+
             index += 1
             setattr(rm, coll_idx, index)
             collection[-1].name = self.properties.defaultname
 			# BBM addition begin
 			# if coshader array, add the selected coshader
             if self.is_shader_param:
-                coshader_name = getattr( rm, 'bl_hidden_%s_menu' % prop_coll )
+                coshader_name = getattr(rm, f'bl_hidden_{prop_coll}_menu')
                 collection[-1].name = coshader_name
-			# BBM addition end
         elif self.properties.action == 'REMOVE':
             collection.remove(index)
             setattr(rm, coll_idx, index-1)
-            
+
         return {'FINISHED'}
 
 # Menus

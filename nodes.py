@@ -150,7 +150,6 @@ class RendermanShaderSocket(bpy.types.NodeSocketShader, RendermanSocket):
 
     def draw(self, context, layout, node, text):
         layout.label(text)
-        pass
 
 class RendermanPropertyGroup(bpy.types.PropertyGroup):
     ui_open = bpy.props.BoolProperty(name='UI Open', default=True)
@@ -278,11 +277,7 @@ def generate_node_type(prefs, name, args):
 
 # UI
 def find_node_input(node, name):
-    for input in node.inputs:
-        if input.name == name:
-            return input
-
-    return None
+    return next((input for input in node.inputs if input.name == name), None)
 
 def draw_nodes_properties_ui(layout, context, nt, input_name='Bxdf', 
                             output_node_type="output"):
@@ -299,20 +294,24 @@ def draw_nodes_properties_ui(layout, context, nt, input_name='Bxdf',
     layout.context_pointer_set("socket", socket)
 
     split = layout.split(0.35)
-    split.label(socket.name+':')
-    
+    split.label(f'{socket.name}:')
+
     if socket.is_linked:
-        split.operator_menu_enum("node.add_%s" % input_name.lower(), 
-                                "node_type", text=node.bl_label)
+        split.operator_menu_enum(
+            f"node.add_{input_name.lower()}", "node_type", text=node.bl_label
+        )
+
     else:
-        split.operator_menu_enum("node.add_%s" % input_name.lower(), 
-                                "node_type", text='None')
+        split.operator_menu_enum(
+            f"node.add_{input_name.lower()}", "node_type", text='None'
+        )
+
 
     if node is not None:
         draw_node_properties_recursive(layout, context, nt, node)
 
 def node_shader_handle(nt, node):
-    return '%s_%s' % (nt.name, node.name)
+    return f'{nt.name}_{node.name}'
 
 def socket_node_input(nt, socket):
     return next((l.from_node for l in nt.links if l.to_socket == socket), None)
@@ -322,14 +321,12 @@ def socket_socket_input(nt, socket):
                 and socket.is_linked), None)
 
 def linked_sockets(sockets):
-    if sockets == None:
-        return []
-    return [i for i in sockets if i.is_linked == True]
+    return [] if sockets is None else [i for i in sockets if i.is_linked == True]
 
 def draw_node_properties_recursive(layout, context, nt, node, level=0):
 
     def indented_label(layout, label):
-        for i in range(level):
+        for _ in range(level):
             layout.label('',icon='BLANK1')
         layout.label(label)
     
@@ -340,22 +337,22 @@ def draw_node_properties_recursive(layout, context, nt, node, level=0):
         for prop_name in prop_names:
             prop_meta = node.prop_meta[prop_name]
             prop = getattr(node, prop_name)
-            
+
             #else check if the socket with this name is connected
             socket = node.inputs[prop_name] if prop_name in node.inputs \
                  else None
             layout.context_pointer_set("socket", socket)
-            
+
             if socket and socket.is_linked:
                 input_node = socket_node_input(nt, socket)
                 icon = 'DISCLOSURE_TRI_DOWN' if socket.ui_open \
                     else 'DISCLOSURE_TRI_RIGHT'
-                
+
                 split = layout.split(NODE_LAYOUT_SPLIT)
                 row = split.row()
                 row.prop(socket, "ui_open", icon=icon, text='', 
-                        icon_only=True, emboss=False)            
-                indented_label(row, socket.name+':')
+                        icon_only=True, emboss=False)
+                indented_label(row, f'{socket.name}:')
                 split.operator_menu_enum("node.add_pattern", "node_type", 
                     text=input_node.bl_label, icon='DOT')
 
@@ -409,11 +406,12 @@ class Add_Node:
     connected to a given input socket.
     '''
     def get_type_items(self, context):
-        items = []
-        for nodetype in RendermanPatternGraph.nodetypes.values():
-            if nodetype.renderman_node_type == self.input_type.lower():
-                items.append((nodetype.typename, nodetype.bl_label, 
-                        nodetype.bl_label))
+        items = [
+            (nodetype.typename, nodetype.bl_label, nodetype.bl_label)
+            for nodetype in RendermanPatternGraph.nodetypes.values()
+            if nodetype.renderman_node_type == self.input_type.lower()
+        ]
+
         items = sorted(items, key=itemgetter(1))
         items.append(('REMOVE', 'Remove', 
                         'Remove the node connected to this socket'))
@@ -466,7 +464,7 @@ class Add_Node:
             else:
                 nt.links.new(newnode.outputs[self.input_type], socket)
             newnode.location = old_node.location
-            
+
             nt.nodes.remove(old_node)
         return {'FINISHED'}
 
@@ -525,27 +523,26 @@ def gen_params(ri, node):
         #if property group recurse
         if meta['renderman_type'] == 'page':
             continue
-        #if input socket is linked reference that
         elif prop_name in node.inputs and node.inputs[prop_name].is_linked:
             from_socket = node.inputs[prop_name].links[0].from_socket
             shader_node_rib(ri, from_socket.node)
-            params['reference %s %s' % (meta['renderman_type'], 
-                    meta['renderman_name'])] = \
-                ["%s:%s" % (from_socket.node.bl_idname, from_socket.identifier)]        
-        #else output rib
+            params[
+                f"reference {meta['renderman_type']} {meta['renderman_name']}"
+            ] = [f"{from_socket.node.bl_idname}:{from_socket.identifier}"]
+
+        elif 'options' in meta and meta['options'] == 'texture':
+            params[f"{meta['renderman_type']} {meta['renderman_name']}"] = rib(
+                get_tex_file_name(prop), type_hint=meta['renderman_type']
+            )
+
+        elif 'arraySize' in meta:
+            params['%s[%d] %s' % (meta['renderman_type'], len(prop), 
+                    meta['renderman_name'])] = rib(prop)
         else:
-            if 'options' in meta and meta['options'] == 'texture':
-                params['%s %s' % (meta['renderman_type'], 
-                        meta['renderman_name'])] = \
-                    rib(get_tex_file_name(prop), 
-                        type_hint=meta['renderman_type']) 
-            elif 'arraySize' in meta:
-                params['%s[%d] %s' % (meta['renderman_type'], len(prop), 
-                        meta['renderman_name'])] = rib(prop) 
-            else:
-                params['%s %s' % (meta['renderman_type'], 
-                        meta['renderman_name'])] = \
-                    rib(prop, type_hint=meta['renderman_type']) 
+            params[f"{meta['renderman_type']} {meta['renderman_name']}"] = rib(
+                prop, type_hint=meta['renderman_type']
+            )
+             
 
     return params
 
@@ -594,19 +591,16 @@ def get_textures_for_node(node):
     textures = []
     for prop_name,meta in node.prop_meta.items():
         prop = getattr(node, prop_name)
-        
+
         if meta['renderman_type'] == 'page':
             continue
-        
-        #if input socket is linked reference that
+
         elif prop_name in node.inputs and node.inputs[prop_name].is_linked:
             from_socket = node.inputs[prop_name].links[0].from_socket
             textures = textures + get_textures_for_node(from_socket.node)
-        
-        #else return a tuple of in name/outname
-        else:
-            if 'options' in meta and meta['options'] == 'texture':# and prop != "" and prop.rsplit('.', 1) != 'tex':
-                textures.append((prop, get_tex_file_name(prop)))
+
+        elif 'options' in meta and meta['options'] == 'texture':# and prop != "" and prop.rsplit('.', 1) != 'tex':
+            textures.append((prop, get_tex_file_name(prop)))
 
     return textures
     
@@ -646,7 +640,7 @@ def register():
     bpy.utils.register_class(RendermanNodeSocketInt)   
     bpy.utils.register_class(RendermanNodeSocketString)
     bpy.utils.register_class(RendermanNodeSocketVector)       
-    
+
     user_preferences = bpy.context.user_preferences
     prefs = user_preferences.addons[__package__].preferences
 
@@ -671,7 +665,7 @@ def register():
             bxdf_nodeitems.append(node_item)
         elif node_type.renderman_node_type == 'light':
             light_nodeitems.append(node_item)
-       
+
 
     # all categories in a list
     node_categories = [
